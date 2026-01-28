@@ -46,7 +46,7 @@ docker-compose up -d db redis
 alembic upgrade head
 uvicorn app.main:app --reload
 ```
-For more details on service lifecycle and auxiliary troubleshooting, please refer to `RUNBOOK.md`
+For more details on service lifecycle and auxiliary troubleshooting, please refer to [RUNBOOK.md](RUNBOOK.md)
 
 ## 5. Threat Model
 

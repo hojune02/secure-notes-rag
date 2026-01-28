@@ -5,11 +5,11 @@
 **Built a service-grade RAG backend with asynchronous document ingestion, per-user vector indexing, confidence-gated retrieval, and audit-ready logging**
 
 ## Table of Contents
-- [1. Project Overview](#1-project-overview)
-- [2. Architecture Overview](#2-architecture-overview)
-- [3. Key Features](#3-key-features)
-- [4. How to Run Locally](#4-how-to-run-locally)
-- [5. Threat Model](#5-threat-model)
+[1. Project Overview](#1-project-overview)
+[2. Architecture Overview](#2-architecture-overview)
+[3. Key Features](#3-key-features)
+[4. How to Run Locally](#4-how-to-run-locally)
+[5. Threat Model](#5-threat-model)
 
 ## 1. Project Overview
 

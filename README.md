@@ -2,12 +2,11 @@
 
 ## Quick Summary
 
-```text
-Built a service-grade RAG backend with asynchronous document ingestion, per-user vector indexing, confidence-gated retrieval, and audit-ready logging
-```
+**Built a service-grade RAG backend with asynchronous document ingestion, per-user vector indexing, confidence-gated retrieval, and audit-ready logging**
+
 ## 1. Project Overview
 
-Secure Notes + RAG is a multi-user backend service that allows authenticated users to upload their documents and perform retrieval-augmented queries based on their data. All of these features are contained under strict user isolation, along with rate limiting and service-grade ingestion to ensure availability.
+`secure-notes-rag` is a multi-user backend service that allows authenticated users to upload their documents and perform retrieval-augmented queries based on their data. All of these features are contained under strict user isolation, along with rate limiting and service-grade ingestion to ensure availability.
 
 ## 2. Architecture Overview
 

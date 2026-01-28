@@ -35,7 +35,7 @@ When document ingestion fails, the document's status on `Document` table wil be 
 
 ### JWT Overview
 
-Do NOT ever commit .env to version control, since it contains the JWT secret. JWTs are stateless, hence all valid tokens signed with the secret will be compromised until expiration if it is leaked.
+Do NOT ever commit `.env` to version control, since it contains the JWT secret. JWTs are stateless, hence all valid tokens signed with the secret will be compromised until expiration if it is leaked.
 
 #### Rotating JWT Secret
 

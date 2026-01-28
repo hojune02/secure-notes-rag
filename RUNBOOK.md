@@ -1,10 +1,10 @@
 # RUNBOOK.md
 
 ## Table of Contents
-- [1. Service Lifecycle](#1-service-lifecycle)
-- [2. Database Migration](#2-database-migrations)
-- [3. Possible Failures](#3-possible-failures)
-- [4. Security Operations](#4-security-operations)
+[1. Service Lifecycle](#1-service-lifecycle)
+[2. Database Migration](#2-database-migrations)
+[3. Possible Failures](#3-possible-failures)
+[4. Security Operations](#4-security-operations)
 
 ## 1. Service Lifecycle
 

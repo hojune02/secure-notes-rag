@@ -42,7 +42,7 @@ PostgreSQL (users, documents, chunks, audit logs)
 
 - A production-style REST API for users to take notes and upload their documents for retrieval-augmented querying
 - JWT-based authentication with access control based on roles (`user`, `admin`)
-    - You need to set your JWT secret in `.env` before running this service locally. Please refer to [*Rotating JWT Secret* section of `RUNBOOK.md`](RUNBOOK.md#rotating-jwt-secret)
+    - You need to set your JWT secret in `.env` before running this service locally. Please refer to [*Rotating JWT Secret* section of RUNBOOK.md](RUNBOOK.md#rotating-jwt-secret)
 - Strict multi-user document and query isolation by DB and index layers
 - Per-user document ingestion implemented with background processing
 - Retrieval-augmented querying with confidence gating and citation provision

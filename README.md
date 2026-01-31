@@ -11,7 +11,7 @@
 
 [3. Key Features](#3-key-features)
 
-[4. How to Run Locally](#4-how-to-run-locally)
+[4. How to Run Locally & with TLS](#4-how-to-run-locally--with-tls)
 
 [5. Threat Model](#5-threat-model)
 

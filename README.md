@@ -49,7 +49,7 @@ PostgreSQL (users, documents, chunks, audit logs)
 - Rate limiting by user and IP with Redis
 - Production-ready health and readiness checks
 
-## 4. How to Run Locally
+## 4. How to Run Locally & with TLS
 
 In your Python venv, run the following commands:
 ```bash
@@ -58,7 +58,22 @@ docker-compose up -d db redis
 alembic upgrade head
 uvicorn app.main:app --reload
 ```
-For more details on service lifecycle and auxiliary troubleshooting, please refer to [RUNBOOK.md](RUNBOOK.md)
+For more details on service lifecycle and auxiliary troubleshooting, please refer to [RUNBOOK.md](RUNBOOK.md).
+
+### TLS
+
+This project contains a Caddyfile for running a reverse proxy with HTTPS handling. The reverse proxy sits in between clients and the API service. Run the proxy using the following command:
+```bash
+docker-compose up -d caddy
+```
+
+You need to copy the TLS certificate from `securenotes-caddy` onto your local device, and then anchor the certificate so that your device can trust it. For my setup (Arch Linux), the following commands worked. This may differ depending on your local environment:
+```bash
+docker cp securenotes-caddy:/data/caddy/pki/authorities/local/root.crt ./caddy-local-root.crt
+sudo cp ./caddy-local-root.crt /etc/ca-certificates/trust-source/anchors/
+sudo update-ca-trust
+```
+Then, using `curl` to connect to `localhost` securely will work. Acessing the service from your browser may still not work, unless you set your browser to trust the certificate. 
 
 ## 5. Threat Model
 

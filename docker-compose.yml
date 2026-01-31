@@ -11,7 +11,7 @@ services:
       - db
       - redis
     ports:
-      - "8000:8000"
+      - "8000:8000" # Set this to '"8000"' if you want to expose this service only via Caddy in real production.
       
   db:
     image: postgres:16

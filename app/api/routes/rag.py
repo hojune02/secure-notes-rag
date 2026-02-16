@@ -9,8 +9,7 @@ from app.models.user import User
 from app.schemas.rag import RagQueryRequest, RagQueryResponse, RagUploadResponse, RagCitation
 from app.services.rag_index import rebuild_index_user, query_index_user
 
-from sqlalchemy import select, or_
-from app.services.rag_query_utils import extract_keywords
+from sqlalchemy import select
 
 from fastapi import BackgroundTasks
 from sqlalchemy import func
@@ -186,26 +185,7 @@ def rag_query(
     current_user: User = Depends(get_current_user),
 ):
     
-    keywords = extract_keywords(payload.question, max_terms=6)
-
-    candidate_ids: list[str] | None = None
-    if keywords:
-        # Find candidate chunks in DB using simple keyword presence
-        # OR together a few ILIKE filters: text ILIKE '%term%'
-        conditions = [Chunk.text.ilike(f"%{kw}%") for kw in keywords]
-        candidates = db.scalars(
-            select(Chunk.id)
-            .join(Document, Chunk.document_id == Document.id)
-            .where(Document.owner_id == current_user.id)
-            .where(or_(*conditions))
-            .limit(2000)
-        ).all()
-        candidate_ids = [str(cid) for cid in candidates] if candidates else None
-
-
-    # Day 3: we won’t scope retrieval per-user yet (single-user assumption),
-    # but we already store owner_id so Day 5 isolation is easy.
-    citations = query_index_user(db, str(current_user.id), payload.question, top_k=payload.top_k, candidate_chunk_ids=candidate_ids, dedupe=True)
+    citations = query_index_user(db, str(current_user.id), payload.question, top_k=payload.top_k, dedupe=True)
 
     # Basic answer for Day 3: return top citation snippet (extractive baseline).
     if not citations:

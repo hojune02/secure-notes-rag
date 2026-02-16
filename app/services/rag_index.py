@@ -1,13 +1,14 @@
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 import hashlib
 
+import httpx
 import joblib
 import numpy as np
-from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
 from sqlalchemy.orm import Session
@@ -15,16 +16,19 @@ from sqlalchemy import select
 
 from app.models.chunk import Chunk
 from app.models.document import Document
+from app.core.config import settings
+
+logger = logging.getLogger(__name__)
 
 DATA_DIR = Path("data")
 
-# Day 4, user-insensitive chunks
-INDEX_PATH = DATA_DIR / "tfidf_index.joblib"
+EMBED_BATCH_SIZE = 64
 
-# Day 5 per-user indexing
+
 def user_index_path(user_id: str) -> Path:
     DATA_DIR.mkdir(parents=True, exist_ok=True)
-    return DATA_DIR / f"tfidf_index_{user_id}.joblib"
+    return DATA_DIR / f"embed_index_{user_id}.joblib"
+
 
 @dataclass
 class Citation:
@@ -39,15 +43,27 @@ def _snippet(text: str, max_len: int = 260) -> str:
     return t if len(t) <= max_len else t[: max_len - 3] + "..."
 
 
+def _embed_texts(texts: list[str]) -> np.ndarray:
+    """Embed a list of texts via Ollama /api/embed, batched."""
+    all_embeddings: list[list[float]] = []
+
+    for i in range(0, len(texts), EMBED_BATCH_SIZE):
+        batch = texts[i : i + EMBED_BATCH_SIZE]
+        resp = httpx.post(
+            f"{settings.ollama_base_url}/api/embed",
+            json={"model": settings.ollama_embed_model, "input": batch},
+            timeout=settings.ollama_timeout,
+        )
+        resp.raise_for_status()
+        all_embeddings.extend(resp.json()["embeddings"])
+
+    return np.array(all_embeddings, dtype=np.float32)
+
+
 def rebuild_index_user(db: Session, user_id: str) -> None:
-    """
-    Rebuild TF-IDF artifacts for all chunks and persist to disk.
-    Day 4: also store a chunk_id -> row index map for fast slicing.
-    """
+    """Rebuild Ollama embedding index for a user's chunks and persist to disk."""
     DATA_DIR.mkdir(parents=True, exist_ok=True)
 
-    # chunks = db.scalars(select(Chunk).order_by(Chunk.created_at.asc())).all()
-    # Day 5, now we only extract chunks from the specific user's uploaded docs.
     chunks = db.scalars(
         select(Chunk)
         .join(Document, Chunk.document_id == Document.id)
@@ -60,23 +76,16 @@ def rebuild_index_user(db: Session, user_id: str) -> None:
 
     if not texts:
         joblib.dump(
-            {"vectorizer": None, "matrix": None, "chunk_ids": [], "doc_ids": [], "id_to_row": {}},
+            {"matrix": None, "chunk_ids": [], "doc_ids": [], "id_to_row": {}},
             user_index_path(user_id),
         )
         return
 
-    vectorizer = TfidfVectorizer(
-        stop_words="english",
-        max_features=50_000,
-        ngram_range=(1, 2),
-    )
-    matrix = vectorizer.fit_transform(texts)
-
+    matrix = _embed_texts(texts)
     id_to_row = {cid: i for i, cid in enumerate(chunk_ids)}
 
     joblib.dump(
         {
-            "vectorizer": vectorizer,
             "matrix": matrix,
             "chunk_ids": chunk_ids,
             "doc_ids": doc_ids,
@@ -87,11 +96,6 @@ def rebuild_index_user(db: Session, user_id: str) -> None:
 
 
 def _load_index(db: Session, user_id: str) -> dict[str, Any]:
-    # if not INDEX_PATH.exists():
-    #     rebuild_index(db)
-    # return joblib.load(INDEX_PATH)
-
-    # Day 5, now loading index is performed per-user.
     if not user_index_path(user_id).exists():
         rebuild_index_user(db, user_id)
     return joblib.load(user_index_path(user_id))
@@ -105,23 +109,18 @@ def query_index_user(
     candidate_chunk_ids: list[str] | None = None,
     dedupe: bool = True,
 ) -> list[Citation]:
-    """
-    TF-IDF cosine similarity search.
-    Day 4: If candidate_chunk_ids provided, restrict similarity to those rows (hybrid-ish retrieval).
-    Day 4: Deduplicate near-identical citations (by snippet hash) to avoid repeats.
-    """
+    """Semantic cosine similarity search using Ollama embeddings."""
     payload = _load_index(db, user_id)
 
-    vectorizer = payload["vectorizer"]
     matrix = payload["matrix"]
     chunk_ids: list[str] = payload["chunk_ids"]
     doc_ids: list[str] = payload["doc_ids"]
     id_to_row: dict[str, int] = payload.get("id_to_row", {})
 
-    if vectorizer is None or matrix is None or not chunk_ids:
+    if matrix is None or not chunk_ids:
         return []
 
-    q_vec = vectorizer.transform([question])
+    q_vec = _embed_texts([question])
 
     k = max(1, min(int(top_k), 20))
 
@@ -135,7 +134,6 @@ def query_index_user(
     if rows:
         sub_matrix = matrix[rows]
         sims = cosine_similarity(q_vec, sub_matrix).flatten()
-        # Map back to global row index
         ranked = sorted(zip(rows, sims), key=lambda x: x[1], reverse=True)[: max(k * 3, 20)]
         global_rows = [r for r, _ in ranked]
         global_scores = [float(s) for _, s in ranked]
@@ -158,7 +156,6 @@ def query_index_user(
         snip = _snippet(chunk.text)
 
         if dedupe:
-            # Deduplicate by hash of normalized snippet prefix
             h = hashlib.sha256(snip.lower().encode("utf-8")).hexdigest()[:16]
             if h in seen:
                 continue

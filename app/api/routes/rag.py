@@ -17,6 +17,7 @@ from sqlalchemy import func
 from app.api.rate_limit import rate_limit_user
 
 from app.services.audit import audit
+from app.services.llm import generate_answer
 
 router = APIRouter(prefix="/rag", tags=["rag"])
 
@@ -171,7 +172,7 @@ def upload_document(
     # Run ingestion after response returns
     background_tasks.add_task(ingest_document_job, str(doc.id), str(current_user.id), text)
 
-    audit(db, current_user.id, "rag.upload", {"role": current_user.role, "uploaded_file": file.filename, "file_id": doc.id})
+    audit(db, current_user.id, "rag.upload", {"role": current_user.role, "uploaded_file": file.filename, "file_id": str(doc.id)})
     # Service-grade: num_chunks unknown until finished
     return RagUploadResponse(document_id=doc.id, num_chunks=0, filename=doc.filename)
 
@@ -210,14 +211,12 @@ def rag_query(
     if not citations:
         return RagQueryResponse(answer="I couldn't find relevant passages in your uploaded documents.", citations=[])
     
-    # Day 4: Confidence gating
+    # Confidence gating: abstain only when top score is too low
     ABS_THRESHOLD = 0.18
-    GAP_THRESHOLD = 0.02
 
     top = citations[0].score
-    second = citations[1].score if len(citations) > 1 else 0.0
 
-    abstain = (top < ABS_THRESHOLD) or ((top - second) < GAP_THRESHOLD)
+    abstain = top < ABS_THRESHOLD
 
     if abstain:
         answer = (
@@ -225,8 +224,16 @@ def rag_query(
             "Try a more specific question or upload a document that explicitly contains the answer."
         )
     else:
-        # Day 4 baseline: extractive answer from best chunk
-        answer = citations[0].snippet
+        # Collect full chunk texts for LLM context
+        chunk_texts = []
+        for c in citations:
+            chunk_obj = db.get(Chunk, c.chunk_id)
+            if chunk_obj:
+                chunk_texts.append(chunk_obj.text)
+
+        # Try generative answer via Ollama; fall back to extractive snippet
+        llm_answer = generate_answer(payload.question, chunk_texts) if chunk_texts else None
+        answer = llm_answer if llm_answer else citations[0].snippet
 
     # Convert to response schema types
     out_citations = [
@@ -319,5 +326,5 @@ def delete_document(
 
     rebuild_index_user(db, user_id=str(current_user.id))
 
-    audit(db, current_user.id, "rag.delete", {"role": current_user.role, "deleted_file": doc.filename, "deleted_file_id": doc.id})
+    audit(db, current_user.id, "rag.delete", {"role": current_user.role, "deleted_file": doc.filename, "deleted_file_id": str(doc.id)})
     return

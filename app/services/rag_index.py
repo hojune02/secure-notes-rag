@@ -92,7 +92,7 @@ def _load_index(db: Session, user_id: str) -> dict[str, Any]:
     # return joblib.load(INDEX_PATH)
 
     # Day 5, now loading index is performed per-user.
-    if not user_index_path(user_id):
+    if not user_index_path(user_id).exists():
         rebuild_index_user(db, user_id)
     return joblib.load(user_index_path(user_id))
 

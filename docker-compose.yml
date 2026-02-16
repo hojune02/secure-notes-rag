@@ -5,11 +5,13 @@ services:
     environment:
       DATABASE_URL: postgresql+psycopg2://postgres:postgres@db:5432/securenotes
       REDIS_URL: redis://redis:6379/0
+      OLLAMA_BASE_URL: http://ollama:11434
       ENV: prod
       # JWT_SECRET: set this in a .env file (do not commit)
     depends_on:
       - db
       - redis
+      - ollama
     ports:
       - "8000:8000" # Set this to '"8000"' if you want to expose this service only via Caddy in real production.
       
@@ -34,6 +36,14 @@ services:
     volumes:
       - secure-notes_redisdata:/data
 
+  ollama:
+    image: ollama/ollama
+    container_name: securenotes-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_models:/root/.ollama
+
   caddy:
     image: caddy:2
     container_name: securenotes-caddy
@@ -50,5 +60,6 @@ services:
 volumes:
   secure-notes_pgdata:
   secure-notes_redisdata:
+  ollama_models:
   caddy_data:
   caddy_config:

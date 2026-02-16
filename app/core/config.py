@@ -16,4 +16,9 @@ class Settings(BaseSettings):
     # Day 2: Rate limiting
     redis_url: str
 
+    # Ollama LLM for generative RAG
+    ollama_base_url: str = "http://localhost:11434"
+    ollama_model: str = "llama3.2"
+    ollama_timeout: int = 120
+
 settings = Settings()
